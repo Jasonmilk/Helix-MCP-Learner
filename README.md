@@ -98,6 +98,51 @@ cargo build --release
 ./target/release/mcp-learner list --plugins-dir ./plugins
 ```
 
+### Post-Learn Review Pipeline (P4-T1)
+
+After learning, MCP-Learner automatically runs **L1 static review** on all generated manifests and routes them to state directories:
+
+```
+output/
+├── stable/      # No errors, no warnings — ready to use
+├── staging/     # Warnings present — needs human confirmation or L2 validation
+├── rejected/    # Errors present — must fix before re-learning
+└── {server}_review_report.json  # Full review report
+```
+
+**Review Rules (9 rules, R001-R009):**
+- R001: Tool name must not be empty (Error)
+- R002: Version must follow SemVer (Warning)
+- R003: Description must not be empty, min 10 chars (Error/Warning)
+- R004: Parameter schema must be valid JSON Schema (Error/Warning/Info)
+- R005: Risk level must be valid (low/medium/critical/catastrophic) (Error)
+- R006: Platform identifier must be known (Warning/Info)
+- R007: host_os list must contain valid OS identifiers (Warning)
+- R008: High-risk tools must have detailed description + schema (Error)
+- R009: Tool name should follow dot-separated namespace convention (Warning)
+
+**Three-Layer Review Architecture:**
+- **L1 (current)**: StaticReviewer — automated static checks
+- **L2 (P4-T2)**: dry_run sandbox pre-execution — real-scenario testing
+- **L3 (P5)**: Human review — final confirmation, rule upgrade decisions
+
+**Usage in code:**
+```rust
+use mcp_learner::post_learn::{ReviewPipeline, ReviewPipelineConfig};
+
+let config = ReviewPipelineConfig {
+    output_root: "./plugins".into(),
+    warning_to_staging: true,
+    generate_report: true,
+};
+let pipeline = ReviewPipeline::new(config);
+let result = pipeline.process_and_write("my-server", &manifests)?;
+println!("Stable: {}, Staging: {}, Rejected: {}",
+    result.state_counts.get("stable").unwrap_or(&0),
+    result.state_counts.get("staging").unwrap_or(&0),
+    result.state_counts.get("rejected").unwrap_or(&0));
+```
+
 ### Configuration File Example (`config.toml`)
 
 ```toml

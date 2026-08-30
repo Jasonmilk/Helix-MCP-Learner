@@ -6,6 +6,7 @@
 
 use clap::{Parser, Subcommand};
 use mcp_learner::{McpClient, extract_tools, ManifestGenerator};
+use mcp_learner::post_learn::{ReviewPipeline, ReviewPipelineConfig};
 use std::path::PathBuf;
 use tracing::{info, warn};
 
@@ -98,8 +99,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // 生成 Manifest
             let generator = ManifestGenerator::new(&server_name, &command, args);
-            generator.write_to_dir(&output, &server_name, &ci144_tools)?;
-            info!("Manifests written to {:?}", output);
+            let tool_set = generator.generate_set(&server_name, &ci144_tools);
+            info!("Generated {} manifests", tool_set.tools.len());
+
+            // L1 静态审查 + 状态迁移自动化（raw → stable/staging/rejected）
+            let review_config = ReviewPipelineConfig {
+                output_root: output.clone(),
+                warning_to_staging: true,
+                generate_report: true,
+            };
+            let review_pipeline = ReviewPipeline::new(review_config);
+            let review_result = review_pipeline.process_and_write(&server_name, &tool_set.tools)?;
+
+            info!(
+                "Review complete: stable={}, staging={}, rejected={}",
+                review_result.state_counts.get("stable").unwrap_or(&0),
+                review_result.state_counts.get("staging").unwrap_or(&0),
+                review_result.state_counts.get("rejected").unwrap_or(&0)
+            );
 
             // 关闭连接
             client.close().await?;
@@ -109,8 +126,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("   Server: {}", server_name);
             println!("   Tools: {}", tools.len());
             println!("   Output: {:?}", output);
+            println!("\n   Review results:");
+            println!("     ✅ Stable:  {} tools (ready to use)", review_result.state_counts.get("stable").unwrap_or(&0));
+            println!("     ⚠️  Staging: {} tools (warnings, need confirmation)", review_result.state_counts.get("staging").unwrap_or(&0));
+            println!("     ❌ Rejected: {} tools (errors, must fix)", review_result.state_counts.get("rejected").unwrap_or(&0));
             println!("\n   Load in Tentacle:");
-            println!("   tentacle --transport stdio --plugins-dir {:?}", output);
+            println!("   tentacle --transport stdio --plugins-dir {:?}", output.join("stable"));
         }
 
         Commands::List { plugins_dir } => {
