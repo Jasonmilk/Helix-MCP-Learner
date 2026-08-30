@@ -8,6 +8,9 @@ pub mod ci144;
 pub mod manifest;
 pub mod proxy;
 pub mod config;
+/// ⚠️ DEPRECATED — 已迁移至 HelixECO-Glove (https://github.com/Jasonmilk/HelixECO-Glove)
+///
+/// 本模块将在 v0.3.0 移除。请使用 helix-eco-glove-macos + helix-eco-glove-tentacle-adapter。
 pub mod glove;
 pub mod learning;
 
