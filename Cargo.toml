@@ -1,0 +1,23 @@
+[package]
+name = "mcp-learner"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "MCP Server → CI-144 工具定义的自动学习器"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+clap = { version = "4", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+async-trait = "0.1"
+thiserror = "1"
+
+[dev-dependencies]
+tempfile = "3"
+
+[[bin]]
+name = "mcp-learner"
+path = "src/main.rs"
