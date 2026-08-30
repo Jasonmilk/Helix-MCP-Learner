@@ -104,3 +104,34 @@ P1 五个任务（T1-T5）全部完成，集成测试和性能测试通过，用
 🧬 P1 已完成
 
 ---
+
+---
+
+## 2026-08-31 生态联调成功（里程碑）
+
+**事件**：MCP-Learner 与 Helix-Tentacle 全链路联调成功
+
+**验证链路**：
+```
+MCP-Learner 学习 mock MCP Server → 4 个工具
+    ↓
+L1 静态审查（9 条规则）→ 0 warning, 0 error
+    ↓
+stable/ 目录（4 个 .manifest.json + mcp_proxy.js）
+    ↓
+Tentacle 扫描 + SHA-256 完整性校验 → 4 个工具注册
+    ↓
+ProcessTool 实例化 → 4 个工具可用
+    ↓
+tentacle-cli 执行 mock-filesystem.list_files → ✅ 成功返回结果
+```
+
+**联调中修复的 4 个问题**：
+1. 工具名命名空间：新增 `extract_tools_with_namespace`，格式 `<server>.<name>`
+2. Manifest 文件后缀：输出改为 `.manifest.json`（Tentacle 扫描要求）
+3. MCP 代理执行体：post_learn 自动创建 mcp_proxy.js 占位文件
+4. 完整性哈希：计算 mcp_proxy.js 真实 SHA-256 并更新 manifest
+
+**提交记录**：`d21b897` — fix(生态联调): 修复全链路兼容性问题
+
+**下一步**：升级 mcp_proxy.js 为真实 MCP 代理执行体（当前为占位脚本）
