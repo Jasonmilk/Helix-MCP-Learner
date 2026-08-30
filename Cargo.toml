@@ -5,6 +5,13 @@ edition = "2021"
 license = "Apache-2.0"
 description = "MCP Server → CI-144 工具定义的自动学习器"
 
+[features]
+# 默认启用 glove 模块（已 deprecated，编译时警告）
+# 使用 --no-default-features 可完全排除 glove 模块
+# CI 中可配置为禁止使用该 feature，强制迁移至 HelixECO-Glove
+default = ["glove"]
+glove = []
+
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

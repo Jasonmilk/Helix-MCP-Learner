@@ -24,11 +24,21 @@
 //! - **当前版本（v0.2.x）**：保留本模块，标记为 deprecated，编译时输出警告
 //! - **v0.3.0**：移除本模块，彻底切换至 HelixECO-Glove
 //!
+//! ## 如何排除本模块
+//!
+//! 使用 `--no-default-features` 可完全排除 glove 模块：
+//!
+//! ```bash
+//! cargo build --no-default-features
+//! ```
+//!
+//! CI 中可配置为禁止使用 `glove` feature，强制迁移。
+//!
 //! ## 如何使用新项目
 //!
 //! ```rust
 //! // 旧方式（已弃用）
-//! // use helix_mcp_learner::glove::macos::MacOSGlove;
+//! // use mcp_learner::glove::macos::MacOSGlove;
 //!
 //! // 新方式
 //! use helix_eco_glove_core::*;
@@ -41,10 +51,5 @@
 //! let glove = Arc::new(MacOSGlove::new()) as Arc<dyn EcoGlove>;
 //! register_glove(&glove, &mut registry).unwrap();
 //! ```
-
-#![deprecated(
-    since = "0.2.0",
-    note = "OS Glove 模块已迁移至 HelixECO-Glove (https://github.com/Jasonmilk/HelixECO-Glove)，将在 v0.3.0 移除"
-)]
 
 pub mod macos;
