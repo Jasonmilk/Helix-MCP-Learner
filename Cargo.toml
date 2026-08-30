@@ -22,6 +22,8 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 async-trait = "0.1"
 thiserror = "1"
+# SHA-256 哈希（用于计算 MCP 代理执行体的完整性哈希）
+sha2 = "0.10"
 # HelixECO-Glove core：提供 StaticReviewer（L1 静态审查）和 EcoGlove trait
 helix-eco-glove-core = { path = "../HelixECO-Glove/core" }
 

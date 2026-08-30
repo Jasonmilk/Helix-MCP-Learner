@@ -121,9 +121,32 @@ pub fn extract_tool(mcp_tool: &Tool) -> Ci144Tool {
     }
 }
 
+/// 将 MCP 工具提炼为 CI-144 工具定义（带命名空间前缀）
+///
+/// 生成符合 Helix 点分命名空间规范的工具名：`<namespace>.<original_name>`
+/// 例如：namespace="mock-filesystem", original="read_file" → "mock-filesystem.read_file"
+///
+/// 这确保 MCP-Learner 学习的工具能通过 L1 审查的 R009（点分命名空间）规则，
+/// 直接进入 stable/ 而不是 staging/。
+pub fn extract_tool_with_namespace(mcp_tool: &Tool, namespace: &str) -> Ci144Tool {
+    let mut tool = extract_tool(mcp_tool);
+    // 将 namespace 中的非字母数字字符替换为下划线，确保工具名合法
+    let safe_namespace: String = namespace
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .collect();
+    tool.intent_name = format!("{}.{}", safe_namespace, mcp_tool.name);
+    tool
+}
+
 /// 批量提炼工具
 pub fn extract_tools(mcp_tools: &[Tool]) -> Vec<Ci144Tool> {
     mcp_tools.iter().map(extract_tool).collect()
+}
+
+/// 批量提炼工具（带命名空间前缀）
+pub fn extract_tools_with_namespace(mcp_tools: &[Tool], namespace: &str) -> Vec<Ci144Tool> {
+    mcp_tools.iter().map(|t| extract_tool_with_namespace(t, namespace)).collect()
 }
 
 #[cfg(test)]

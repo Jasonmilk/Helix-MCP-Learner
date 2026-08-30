@@ -5,7 +5,7 @@
 //!   mcp-learner list --server-config <config.json>
 
 use clap::{Parser, Subcommand};
-use mcp_learner::{McpClient, extract_tools, ManifestGenerator};
+use mcp_learner::{McpClient, extract_tools_with_namespace, ManifestGenerator};
 use mcp_learner::post_learn::{ReviewPipeline, ReviewPipelineConfig};
 use std::path::PathBuf;
 use tracing::{info, warn};
@@ -93,8 +93,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 info!("  - {} (risk: {:?})", tool.name, mcp_learner::risk_rating(&tool.name));
             }
 
-            // 提炼为 CI-144 工具定义
-            let ci144_tools = extract_tools(&tools);
+            // 提炼为 CI-144 工具定义（带命名空间前缀，符合点分命名空间规范）
+            let ci144_tools = extract_tools_with_namespace(&tools, &server_name);
             info!("Extracted {} CI-144 tools", ci144_tools.len());
 
             // 生成 Manifest

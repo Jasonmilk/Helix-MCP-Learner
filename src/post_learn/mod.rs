@@ -198,7 +198,7 @@ impl ReviewPipeline {
             ToolState::Stable
         };
 
-        let output_path = PathBuf::from(state.dir_name()).join(format!("{}.json", manifest.name));
+        let output_path = PathBuf::from(state.dir_name()).join(format!("{}.manifest.json", manifest.name));
 
         ToolReviewResult {
             tool_name: manifest.name.clone(),
@@ -241,16 +241,25 @@ impl ReviewPipeline {
         server_name: &str,
         manifests: &[ToolManifest],
     ) -> Result<BatchReviewResult, std::io::Error> {
-        // 1. 批量审查
-        let batch_result = self.review_batch(server_name, manifests);
+        // 1. 确保 MCP 代理执行体存在，并计算其真实哈希
+        let proxy_hash = self.ensure_mcp_proxy_exists()?;
 
-        // 2. 创建状态目录
+        // 2. 更新所有 manifest 的 integrity.hash 为真实哈希
+        let mut manifests = manifests.to_vec();
+        for manifest in &mut manifests {
+            manifest.integrity.hash = proxy_hash.clone();
+        }
+
+        // 3. 批量审查
+        let batch_result = self.review_batch(server_name, &manifests);
+
+        // 4. 创建状态目录
         for state in [ToolState::Stable, ToolState::Staging, ToolState::Rejected] {
             let dir = self.config.output_root.join(state.dir_name());
             std::fs::create_dir_all(&dir)?;
         }
 
-        // 3. 将每个工具写入对应状态目录
+        // 5. 将每个工具写入对应状态目录
         for (i, result) in batch_result.results.iter().enumerate() {
             let manifest = &manifests[i];
             let full_path = self.config.output_root.join(&result.output_path);
@@ -271,7 +280,7 @@ impl ReviewPipeline {
             );
         }
 
-        // 4. 生成审查报告
+        // 6. 生成审查报告
         if self.config.generate_report {
             let report_path = self
                 .config
@@ -282,6 +291,60 @@ impl ReviewPipeline {
         }
 
         Ok(batch_result)
+    }
+
+    /// 确保 MCP 代理执行体存在于所有状态目录中，并返回其 SHA-256 哈希
+    ///
+    /// Tentacle 扫描插件时会检查 executable 文件的 SHA-256 哈希。
+    /// 因此需要计算 mcp_proxy.js 的真实哈希并填入 manifest 的 integrity.hash。
+    fn ensure_mcp_proxy_exists(&self) -> Result<String, std::io::Error> {
+        let proxy_content = r#"#!/usr/bin/env node
+/**
+ * MCP Proxy Executor — Helix-MCP-Learner 通用 MCP 代理执行体
+ *
+ * 用法：node mcp_proxy.js <tool_name> <params_json> <server_config_json>
+ *
+ * 这个脚本是 Tentacle 插件执行体的占位实现。
+ * 实际生产环境中，应使用 Rust 实现的 tentacle-transport-mcp crate。
+ */
+const [,, toolName, paramsJson, serverConfigJson] = process.argv;
+
+try {
+    const params = JSON.parse(paramsJson || '{}');
+    const serverConfig = JSON.parse(serverConfigJson || '{}');
+
+    // 占位实现：输出工具调用信息
+    const result = {
+        ok: true,
+        data: {
+            tool: toolName,
+            params,
+            serverConfig,
+            message: "MCP Proxy placeholder — replace with tentacle-transport-mcp in production"
+        }
+    };
+    console.log(JSON.stringify(result));
+} catch (e) {
+    console.error(JSON.stringify({ ok: false, error: e.message }));
+    process.exit(1);
+}
+"#;
+
+        // 计算代理执行体的 SHA-256 哈希
+        let proxy_hash = sha256_hex(proxy_content.as_bytes());
+
+        for state in [ToolState::Stable, ToolState::Staging, ToolState::Rejected] {
+            let proxy_path = self.config.output_root.join(state.dir_name()).join("mcp_proxy.js");
+            if !proxy_path.exists() {
+                if let Some(parent) = proxy_path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+                std::fs::write(&proxy_path, proxy_content)?;
+                tracing::info!("创建 MCP 代理执行体: {}", proxy_path.display());
+            }
+        }
+
+        Ok(proxy_hash)
     }
 
     /// 获取配置引用
@@ -299,6 +362,16 @@ fn now_unix() -> String {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default();
     format!("{}", now.as_secs())
+}
+
+/// 计算数据的 SHA-256 哈希，返回十六进制字符串
+fn sha256_hex(data: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+
+    let mut hasher = Sha256::new();
+    hasher.update(data);
+    let result = hasher.finalize();
+    format!("{:x}", result)
 }
 
 // ============================================================================

@@ -24,7 +24,7 @@ pub mod glove;
 pub mod learning;
 
 pub use mcp::{McpClient, McpError, Tool, ToolInputSchema};
-pub use ci144::{Ci144Tool, RiskLevel, risk_rating, extract_tools, extract_tool};
+pub use ci144::{Ci144Tool, RiskLevel, risk_rating, extract_tools, extract_tool, extract_tools_with_namespace, extract_tool_with_namespace};
 pub use manifest::ManifestGenerator;
 pub use proxy::{McpProxy, McpServerConfig, ToolCallRequest, ToolCallResponse};
 pub use config::{ConfigManager, LearnerConfig, BatchLearnResult, ConflictStrategy, example_config};
