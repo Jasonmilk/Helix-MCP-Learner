@@ -17,6 +17,7 @@
 | [ADR-0002](ADR-0002-pfp-risk-rating-rules.md) | PFP 风险评级规则（工具名模式匹配） | Accepted | 2026-08-30 |
 | [ADR-0003](ADR-0003-template-based-reuse-architecture.md) | 模板化复用架构（参数化 Manifest） | Accepted | 2026-08-30 |
 | [ADR-0004](ADR-0004-stdio-transport-first.md) | stdio 传输优先（P1 阶段） | Accepted | 2026-08-30 |
+| [ADR-0005](ADR-0005-p2-architecture-decisions.md) | P2 架构决策（代理执行体 + 多 Server + macOS Glove + 增量学习） | Accepted | 2026-08-30 |
 
 ## 状态定义
 

@@ -1,9 +1,72 @@
 # Helix-MCP-Learner 生长记录
 
-> **版本**：v1.1
+> **版本**：v1.3
 > **日期**：2026-08-30
 > **所属方法论**：phyt-DNA 方法论 v1.0
 > **规则**：仅保留最近 3 条记录，超则归档至 `docs/archive/growth/`（已版本化，永不删除）
+
+---
+
+## [2026-08-30] P2 完成 — OS Glove + 多 MCP Server + MCP 代理执行体，42 测试全绿
+
+### 触发条件
+P2 五个任务（T1-T5）全部完成，MCP 代理执行体、多 MCP Server 配置、macOS Glove、增量学习全部实现并通过测试。
+
+### 变更性质
+- **T1 MCP 代理执行体**：`src/proxy/` — 管理 MCP Server 生命周期，统一工具调用接口，懒连接，3 个代理集成测试
+- **T2 多 MCP Server 支持**：`src/config/` — TOML 配置文件，批量学习，工具名冲突处理（4 种策略：error/skip/rename/overwrite）
+- **T3 macOS Glove 最小版本**：`src/glove/macos/` — 6 个系统工具（文件读写、目录列表、命令执行、进程列表、AppleScript）
+- **T4 增量学习 + 版本管理**：`src/learning/` — 工具变化检测（新增/变更/删除），增量 diff，版本管理，废弃标记
+- **T5 文档完善 + 测试**：README 中英文版更新，PLAN.md v3.0，GROWTH.md v1.3
+
+### 关键成果
+- **测试**：42 个全绿（35 单元 + 3 集成 + 1 性能 + 3 代理）
+- **模块数**：7 个核心模块（mcp/ci144/manifest/proxy/config/glove/learning）
+- **macOS 工具数**：6 个（read_file/write_file/list_directory/execute_command/list_processes/run_applescript）
+- **冲突处理策略**：4 种（error/skip/rename/overwrite）
+- **增量学习**：支持新增/变更/删除/未变更 4 种变化检测
+
+### 兼容性
+- P1 生成的 Manifest 格式保持不变，P2 向后兼容
+- 新增的 MCP 代理执行体是独立组件，不影响 P1 的学习流程
+- 多 MCP Server 支持是增量功能，单 MCP Server 场景仍可用
+- macOS Glove 是可选模块，不影响其他平台
+
+### 验收
+- `cargo test --workspace` 全绿：42 passed
+- MCP 代理端到端测试：mock MCP Server → 代理 → 工具调用 → 返回结果
+- 多 MCP Server 批量学习：TOML 配置 → 批量学习 → 结果合并
+- macOS Glove 工具测试：文件读写、命令执行、进程列表
+- 增量学习测试：新增/变更/删除检测
+
+### 状态
+🧬 P2 已完成，P3 预览中（生态集成 + 高级特性）
+
+---
+
+## [2026-08-30] P2 启动 — OS Glove + 多 MCP Server + MCP 代理执行体
+
+### 触发条件
+P1 完成并推送至 GitHub（https://github.com/Jasonmilk/Helix-MCP-Learner），用户授权启动 P2。P2 完成后再讨论生态联调（方向 B）和 Helix-Mind P10（方向 C）。
+
+### 变更性质
+- **P2 规划**：T1 MCP 代理执行体 → T2 多 MCP Server 支持 → T3 macOS Glove 最小版本 → T4 增量学习 + 版本管理 → T5 文档完善 + 测试
+- **关键决策点**：D1 代理执行体形式（守护进程/静态插件/WASM）、D2 配置格式（TOML）、D3 macOS Glove 实现方式（作为 MCP Server）、D4 增量学习策略（工具清单 diff）
+- **GitHub 仓库**：https://github.com/Jasonmilk/Helix-MCP-Learner（Public，main 分支）
+
+### 兼容性
+- P1 生成的 Manifest 格式保持不变，P2 向后兼容
+- 新增的 MCP 代理执行体是独立组件，不影响 P1 的学习流程
+- 多 MCP Server 支持是增量功能，单 MCP Server 场景仍可用
+
+### 验收
+- PLAN.md v2.0：P2 任务拆分清晰（T1-T5）
+- 关键决策点列出（D1-D4）
+- 下一阶段预览（P3 生态联调）
+- GitHub 仓库可访问，代码已推送
+
+### 状态
+🧬 P2 已完成
 
 ---
 
@@ -38,31 +101,6 @@ P1 五个任务（T1-T5）全部完成，集成测试和性能测试通过，用
 - 确定性测试：相同输入相同输出
 
 ### 状态
-🧬 P1 已完成，P2 预览中（OS Glove + 多 MCP Server + MCP 代理执行体）
-
----
-
-## [2026-08-30] 项目初始化 — phyt-DNA 方法论骨架 + P1 规划
-
-### 触发条件
-Helix 生态 6 个核心项目全部完成（1060+ tests），ECO-Glove 愿景文档（helix-eco-glove-vision.md）明确启动条件已满足（Cellrix P1 完成），用户授权启动方向 A：MCP-Learner 最小验证。
-
-### 变更性质
-- **项目初始化**：创建 Helix-MCP-Learner 独立项目，Rust 语言，MIT/Apache 2.0 双协议
-- **方法论骨架**：DNA.md（6 条不可变原则）、RNA.md（三层加载协议 + 7 条 AI 协作铁律）、PLAN.md（P1 导航牌 + 5 个任务拆分）、GROWTH.md（本记录）
-- **P1 规划**：T1 MCP Client 基础层 → T2 CI-144 工具提炼 → T3 Manifest 生成器 → T4 端到端验证 → T5 效率对比 + 确定性验证
-- **关键决策**：先实现 stdio 传输（本地 MCP Server），风险评级用工具名模式匹配，学习结果先输出 JSON Manifest
-
-### 兼容性
-新项目，零历史代码；与 Helix 生态通过 CI-144 工具定义（Manifest）解耦。
-
-### 验收
-- DNA/RNA/PLAN/GROWTH 四文档建立
-- P1 任务拆分清晰（T1-T5）
-- 关键决策点列出（D1-D4）
-- 下一阶段预览（P2 OS Glove + 多 MCP Server）
-
-### 状态
-🧬 已完成，P1 T1 待启动
+🧬 P1 已完成
 
 ---

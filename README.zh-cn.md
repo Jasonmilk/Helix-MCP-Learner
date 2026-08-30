@@ -55,27 +55,24 @@ Tuck（安全决策）
 
 ## 当前状态
 
-**P1 最小验证已完成** ✅（2026-08-30）
+**P2 已完成** ✅（2026-08-30）
 
-| 任务 | 内容 | 状态 |
+| 阶段 | 内容 | 状态 |
 |---|---|---|
-| T1 | MCP Client 基础层（stdio + JSON-RPC 2.0 + tools/list + tools/call） | ✅ 完成 |
-| T2 | CI-144 工具提炼层（CIN7 + CAPABILITY-13 + PFP 风险评级） | ✅ 完成 |
-| T3 | Tentacle 插件 Manifest 生成器 | ✅ 完成 |
-| T4 | 端到端验证：mock-mcp-server → 学习 → 生成 → 验证 | ✅ 完成 |
-| T5 | 效率对比 + 确定性验证 | ✅ 完成 |
+| P1 | MCP-Learner 最小验证（stdio + mock-server + 端到端） | ✅ 完成 |
+| **P2** | **OS Glove + 多 MCP Server + MCP 代理执行体** | **✅ 完成** |
+| P3 | 生态集成 + 高级特性 | ⏳ 预览 |
 
-**测试**：17 个全绿（14 单元 + 3 集成）
+### P2 特性
 
-### 性能数据
-
-| 指标 | 数值 | 说明 |
+| 特性 | 模块 | 说明 |
 |---|---|---|
-| 学习过程（4 工具） | ~107ms | 一次性成本 |
-| MCP 直接调用 | ~239μs | read_file 平均延迟 |
-| Manifest 加载 | ~131μs | 单个工具读取+解析 |
-| 风险评级 | ~1.3μs | 单次评级 |
-| **CI-144 重封装开销** | **<1%** | Manifest 加载 vs MCP 调用 |
+| MCP 代理执行体 | `src/proxy/` | 管理 MCP Server 生命周期，统一工具调用接口，懒连接 |
+| 多 MCP Server | `src/config/` | TOML 配置，批量学习，工具名冲突处理（4 种策略） |
+| macOS Glove | `src/glove/macos/` | 6 个系统工具：文件读写、目录列表、命令执行、进程列表、AppleScript |
+| 增量学习 | `src/learning/` | 工具变化检测、增量 diff、版本管理、废弃标记 |
+
+**测试**：42 个全绿（35 单元 + 3 集成 + 1 性能 + 3 代理）
 
 ---
 
@@ -89,28 +86,81 @@ cd Helix-MCP-Learner
 # 构建
 cargo build --release
 
-# 学习 MCP Server，生成 Tentacle 插件 Manifest
+# 学习单个 MCP Server，生成 Tentacle 插件 Manifest
 ./target/release/mcp-learner learn \
   --command python3 \
   --args tests/mock_mcp_server.py \
   --output ./plugins \
   --name mock-filesystem
 
+# 批量学习多个 MCP Server（TOML 配置）
+./target/release/mcp-learner learn-all --config config.toml
+
 # 查看已学习的工具
 ./target/release/mcp-learner list --plugins-dir ./plugins
 ```
 
-### 输出示例
+### 配置文件示例（`config.toml`）
 
-```
-✅ Learning complete!
-   Server: mock-filesystem
-   Tools: 4
-   Output: ./plugins
+```toml
+[global]
+output_dir = "./plugins"
+conflict_strategy = "rename"  # error | skip | rename | overwrite
 
-   Load in Tentacle:
-   tentacle --transport stdio --plugins-dir ./plugins
+[[servers]]
+name = "filesystem"
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+
+[[servers]]
+name = "github"
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-github"]
 ```
+
+### MCP 代理执行体（P2）
+
+MCP 代理管理 MCP Server 生命周期，提供统一工具调用接口：
+
+```rust
+use mcp_learner::{McpProxy, McpServerConfig, ToolCallRequest};
+
+#[tokio::main]
+async fn main() {
+    let proxy = McpProxy::new();
+
+    // 添加 MCP Server（懒连接）
+    proxy.add_server(McpServerConfig {
+        name: "filesystem".to_string(),
+        command: "python3".to_string(),
+        args: vec!["mock_mcp_server.py".to_string()],
+        transport: "stdio".to_string(),
+    });
+
+    // 调用工具（首次调用时自动连接）
+    let response = proxy.call_tool(ToolCallRequest {
+        server: "filesystem".to_string(),
+        tool: "read_file".to_string(),
+        arguments: serde_json::json!({"path": "/tmp/test.txt"}),
+    }).await;
+
+    println!("成功: {}", response.success);
+    println!("结果: {:?}", response.result);
+}
+```
+
+### macOS Glove（P2）
+
+6 个内置 macOS 系统工具，可作为 MCP Server 或直接使用：
+
+| 工具 | 说明 | 风险等级 |
+|---|---|---|
+| `macos_read_file` | 读取文件 | LOW |
+| `macos_write_file` | 写入文件 | MEDIUM |
+| `macos_list_directory` | 列出目录 | LOW |
+| `macos_execute_command` | 执行 shell 命令 | CRITICAL |
+| `macos_list_processes` | 列出进程 | LOW |
+| `macos_run_applescript` | 执行 AppleScript | CRITICAL |
 
 ---
 
@@ -168,11 +218,22 @@ Helix-MCP-Learner/
 │   │   └── mod.rs          # MCP Client（stdio + JSON-RPC 2.0）
 │   ├── ci144/
 │   │   └── mod.rs          # CI-144 提炼 + PFP 风险评级
-│   └── manifest/
-│       └── mod.rs          # Tentacle Manifest 生成器
+│   ├── manifest/
+│   │   └── mod.rs          # Tentacle Manifest 生成器
+│   ├── proxy/
+│   │   └── mod.rs          # MCP 代理执行体（P2）
+│   ├── config/
+│   │   └── mod.rs          # 多 MCP Server 配置 + 批量学习（P2）
+│   ├── glove/
+│   │   ├── mod.rs
+│   │   └── macos/
+│   │       └── mod.rs      # macOS Glove（6 个系统工具）（P2）
+│   └── learning/
+│       └── mod.rs          # 增量学习 + 版本管理（P2）
 ├── tests/
-│   ├── integration_test.rs # 端到端测试
-│   ├── perf_test.rs        # 性能对比测试
+│   ├── integration_test.rs # 端到端测试（3）
+│   ├── perf_test.rs        # 性能对比测试（1）
+│   ├── proxy_test.rs       # MCP 代理测试（3）
 │   └── mock_mcp_server.py  # 测试用模拟 MCP Server
 ├── docs/
 │   ├── DNA.md              # 宪法：6 条不可变原则
@@ -197,7 +258,7 @@ Helix-MCP-Learner/
 | [Tuck](https://github.com/Jasonmilk/Tuck) | 免疫系统（安全闸门） | ✅ 完成 |
 | [Cellrix](https://github.com/Jasonmilk/Cellrix) | 皮肤（UI/展示） | ✅ 完成 |
 | [BIND-19](https://github.com/CommonIntents/BIND-19) | 神经系统（CI-144 协议） | ✅ 完成 |
-| **Helix-MCP-Learner** | **翻译官（MCP → CI-144）** | **✅ P1 完成** |
+| **Helix-MCP-Learner** | **翻译官（MCP → CI-144）** | **✅ P2 完成** |
 
 ---
 

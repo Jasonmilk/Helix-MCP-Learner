@@ -1,73 +1,74 @@
 # Helix-MCP-Learner 开发导航牌（PLAN）
 
-> **版本**：v1.1（P1 完成，2026-08-30）
-> **状态**：✅ P1 MCP-Learner 最小验证（已完成）
+> **版本**：v3.0（P2 完成，2026-08-30）
+> **状态**：✅ P2 完成 — OS Glove + 多 MCP Server + MCP 代理执行体
 > **分支**：main
 > **所属方法论**：phyt-DNA 方法论 v1.0（方法论锚点项目 https://github.com/Jasonmilk/phyt-DNA）
 > **规则**：本文件只含当前阶段 + 下一阶段预览 + 阶段总览地图。完成阶段 → GROWTH.md。总行数 ≤150，超出触发历史迁移。
 
 ---
 
-## 1. 当前阶段：P1 — MCP-Learner 最小验证 ✅ 已完成
+## 1. 当前阶段：P3 预览（待启动）
 
-> **状态**：✅ 已完成。17 个测试全绿（14 单元 + 3 集成），性能验证通过。
-> **目标**：验证"MCP Server → 学习 → CI-144 工具定义 → Tentacle 执行"的完整链路。
-> **前置依赖**：Tentacle 插件系统已完成（P0-P5），CI-144 v2.0 已冻结（PFP-xCF14 + SAP-xCF14）。
+> **状态**：⏳ 待启动。
+> **目标**：生态集成 + 高级特性。与 Tentacle/Anaphase/Mind 联调，验证端到端工具学习→执行闭环。
+> **前置依赖**：P2 完成（MCP 代理 + 多 Server + macOS Glove + 增量学习，42 测试全绿）。
 
-### 1.1 任务拆分
+### 1.1 P3 任务预览
 
 | 任务 | 内容 | 状态 |
 |---|---|---|
-| T1 | MCP Client 基础层（stdio 传输 + JSON-RPC 2.0 + tools/list + tools/call） | ✅ 完成 |
-| T2 | CI-144 工具提炼层（MCP 工具 → CIN7 意图 + CAPABILITY-13 能力 + PFP 风险评级） | ✅ 完成 |
-| T3 | Tentacle 插件 Manifest 生成器（学习结果 → 可加载的插件 Manifest） | ✅ 完成 |
-| T4 | 最小验证：mock-mcp-server 学习 → 生成 → 验证 Manifest | ✅ 完成 |
-| T5 | 效率对比 + 确定性验证 + 文档完善 | ✅ 完成 |
+| T1 | Tentacle 集成：MCP 代理作为 Tentacle 插件，验证学习→执行闭环 | ⏳ 预览 |
+| T2 | Anaphase 集成：参数化 Manifest 的意图识别 + 参数填充 | ⏳ 预览 |
+| T3 | 真实 MCP Server 验证：用 npx 官方 MCP Server（filesystem/github）验证 | ⏳ 预览 |
+| T4 | 性能压测：高并发工具调用 + 批量学习性能 | ⏳ 预览 |
+| T5 | 文档完善 + 示例 + 提交 | ⏳ 预览 |
 
-### 1.2 代码真相源
+---
 
-- **MCP Client（T1 ✅）**：`src/mcp/` — stdio 传输、JSON-RPC 2.0 协议、tools/list、tools/call
-- **CI-144 提炼（T2 ✅）**：`src/ci144/` — 工具名映射、参数 schema 转换、PFP 风险评级规则
-- **Manifest 生成器（T3 ✅）**：`src/manifest/` — Tentacle 插件 Manifest JSON 生成
-- **CLI 入口（T4 ✅）**：`src/main.rs` — `mcp-learner learn --command <cmd> --output <dir>`
-- **测试（T5 ✅）**：`tests/` — 集成测试、确定性测试、性能对比测试
+## 2. 已完成阶段：P2 — OS Glove + 多 MCP Server + MCP 代理执行体
 
-### 1.3 关键决策点（已确认）
+> **完成时间**：2026-08-30
+> **测试**：42 个全绿（35 单元 + 3 集成 + 1 性能 + 3 代理）
 
-| # | 决策点 | 方案 | 状态 |
-|---|---|---|---|
-| D1 | MCP 传输方式 | stdio（本地），SSE/HTTP 留待 P2 | ✅ 已确认 |
-| D2 | 风险评级规则 | 工具名模式匹配（read_*=LOW, delete_*=CRITICAL） | ✅ 已确认 |
-| D3 | 学习结果缓存格式 | JSON 文件（每个工具一个 Manifest + 索引文件） | ✅ 已确认 |
-| D4 | 增量学习策略 | P1 全量重学，P2 实现增量 diff | ✅ 已确认 |
+### 2.1 任务完成情况
 
-### 1.4 验收结果
-
-- T1：MCP Client 可连接 mock MCP Server，成功调用 tools/list 和 tools/call ✅
-- T2：MCP 工具可提炼为 CI-144 工具定义（含 CIN7 意图名、CAPABILITY-13 参数 schema、PFP Risk-Level）✅
-- T3：生成的 Manifest 符合 Tentacle 格式（name/version/executable/integrity/parameters_schema/security_level）✅
-- T4：端到端验证：学习 4 个工具 → 生成 4 个 Manifest + 1 索引 → 验证内容正确 ✅
-- T5：效率对比数据 + 确定性测试通过 ✅
-- `cargo test --workspace` 全绿：17 个测试（14 单元 + 3 集成）✅
-
-### 1.5 性能数据
-
-| 指标 | 数值 | 说明 |
+| 任务 | 内容 | 状态 |
 |---|---|---|
-| 学习过程（4 工具） | ~107ms | 一次性成本，含连接+初始化+列表+提炼+生成 |
-| MCP 直接调用 | ~239μs | read_file 平均延迟（10 次） |
-| Manifest 加载 | ~131μs | 单个工具 Manifest 读取+解析 |
-| 风险评级 | ~1.3μs | 单次评级（3000 次平均） |
-| CI-144 重封装开销 | <1% | Manifest 加载 vs MCP 调用 |
+| T1 | MCP 代理执行体（mcp-proxy）：通用 MCP 工具调用代理，可被 Tentacle 加载执行 | ✅ 完成 |
+| T2 | 多 MCP Server 支持：配置管理 + 批量学习 + 结果合并/去重 | ✅ 完成 |
+| T3 | macOS Glove 最小版本：文件/进程/AppleScript 系统 API 适配（6 个工具） | ✅ 完成 |
+| T4 | 增量学习 + 版本管理：工具变化检测 + 增量学习 + 废弃标记 | ✅ 完成 |
+| T5 | 文档完善 + 集成测试 + 性能验证 | ✅ 完成 |
 
-### 1.6 下一阶段预览：P2 — OS Glove + 多 MCP Server 支持
+### 2.2 关键决策（已确认）
 
-- macOS Glove 最小版本（文件/进程/AppleScript）
-- 多 MCP Server 同时学习
-- 增量学习 + 版本管理
+| # | 决策点 | 最终方案 |
+|---|---|---|
+| D1 | MCP 代理执行体形式 | 独立 Library Crate，可被多组件复用（非 Tentacle 静态插件） |
+| D2 | 多 MCP Server 配置格式 | TOML |
+| D3 | macOS Glove 实现方式 | 直接生成 CI-144 工具 + 可作为 MCP Server 被学习 |
+| D4 | 增量学习策略 | 工具清单 diff（新增/变更/删除检测） |
+
+---
+
+## 3. 阶段总览地图
+
+| 阶段 | 内容 | 状态 |
+|---|---|---|
+| P0 | 项目初始化 + DNA/RNA/PLAN/GROWTH 方法论骨架 | ✅ 完成 |
+| P1 | MCP-Learner 最小验证（stdio + mock-server + 端到端，17 测试） | ✅ 完成 |
+| **P2** | **OS Glove + 多 MCP Server + MCP 代理执行体（42 测试）** | **✅ 完成** |
+| P3 | 生态集成 + 高级特性（Tentacle/Anaphase/Mind 联调） | ⏳ 预览 |
+
+### 1.5 下一阶段预览：P3 — 生态联调 + 高级特性
+
+- 与 Tentacle 深度集成（插件热加载）
+- 与 Tuck 安全闸门联动（自动生成策略规则）
+- 与 Anaphase 编排层对接（意图识别 + 参数填充）
+- Linux Glove / 鸿蒙 Glove
+- MCP Server 远程传输（SSE/HTTP）
 - 学习结果持久化（SQLite）
-- Tuck 策略规则自动生成
-- MCP 代理执行体（mcp_proxy.js）实现，让 Tentacle 可直接执行学习后的工具
 
 ---
 
@@ -75,9 +76,9 @@
 
 | 阶段 | 内容 | 状态 |
 |---|---|---|
-| **P1** | **MCP-Learner 最小验证（stdio + mock-server + 端到端）** | **✅ 已完成** |
-| P2 | OS Glove + 多 MCP Server + 增量学习 + MCP 代理执行体 | ⏳ 预览 |
-| P3 | 鸿蒙/安卓手套 + IoT 支持 | ⏳ 远期 |
+| P1 | MCP-Learner 最小验证（stdio + mock-server + 端到端） | ✅ 已完成 |
+| **P2** | **OS Glove + 多 MCP Server + MCP 代理执行体** | **🚧 启动中** |
+| P3 | 生态联调 + 高级特性（Tentacle/Tuck/Anaphase 集成） | ⏳ 预览 |
 
 ---
 
@@ -90,6 +91,7 @@
 | Tentacle 插件 Manifest | Helix-Tentacle `crates/tentacle-core/src/manifest.rs` |
 | PFP 风险评级 | `src/ci144/mod.rs` risk_rating() 函数 |
 | ECO-Glove 愿景 | Helix-Mind `docs/vision/helix-eco-glove-vision.md` |
+| ADR 决策记录 | `docs/decisions/`（ADR-0001~0004） |
 
 ---
 

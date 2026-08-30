@@ -53,27 +53,24 @@ Tuck (Security Decisions)
 
 ## Current Status
 
-**P1 Minimum Viable Verification Complete** ✅ (2026-08-30)
+**P2 Complete** ✅ (2026-08-30)
 
-| Task | Content | Status |
+| Phase | Content | Status |
 |---|---|---|
-| T1 | MCP Client foundation (stdio + JSON-RPC 2.0 + tools/list + tools/call) | ✅ Done |
-| T2 | CI-144 tool extraction layer (CIN7 + CAPABILITY-13 + PFP risk rating) | ✅ Done |
-| T3 | Tentacle plugin Manifest generator | ✅ Done |
-| T4 | End-to-end verification: mock-mcp-server → learn → generate → validate | ✅ Done |
-| T5 | Performance comparison + determinism verification | ✅ Done |
+| P1 | MCP-Learner minimum verification (stdio + mock-server + end-to-end) | ✅ Complete |
+| **P2** | **OS Glove + Multi MCP Server + MCP Proxy Executor** | **✅ Complete** |
+| P3 | Ecosystem integration + advanced features | ⏳ Preview |
 
-**Tests**: 17 all green (14 unit + 3 integration)
+### P2 Features
 
-### Performance Data
-
-| Metric | Value | Description |
+| Feature | Module | Description |
 |---|---|---|
-| Learning process (4 tools) | ~107ms | One-time cost |
-| MCP direct call | ~239μs | read_file average latency |
-| Manifest load | ~131μs | Single tool read+parse |
-| Risk rating | ~1.3μs | Single rating |
-| **CI-144 re-encapsulation overhead** | **<1%** | Manifest load vs MCP call |
+| MCP Proxy Executor | `src/proxy/` | Manage MCP Server lifecycle, unified tool call interface, lazy connection |
+| Multi MCP Server | `src/config/` | TOML config, batch learning, tool conflict resolution (4 strategies) |
+| macOS Glove | `src/glove/macos/` | 6 system tools: file read/write, directory list, command exec, process list, AppleScript |
+| Incremental Learning | `src/learning/` | Tool change detection, incremental diff, version management, deprecation marking |
+
+**Tests**: 42 all green (35 unit + 3 integration + 1 performance + 3 proxy)
 
 ---
 
@@ -87,28 +84,81 @@ cd Helix-MCP-Learner
 # Build
 cargo build --release
 
-# Learn from an MCP Server, generate Tentacle plugin Manifests
+# Learn from a single MCP Server, generate Tentacle plugin Manifests
 ./target/release/mcp-learner learn \
   --command python3 \
   --args tests/mock_mcp_server.py \
   --output ./plugins \
   --name mock-filesystem
 
+# Batch learn from multiple MCP Servers (TOML config)
+./target/release/mcp-learner learn-all --config config.toml
+
 # List learned tools
 ./target/release/mcp-learner list --plugins-dir ./plugins
 ```
 
-### Example Output
+### Configuration File Example (`config.toml`)
 
-```
-✅ Learning complete!
-   Server: mock-filesystem
-   Tools: 4
-   Output: ./plugins
+```toml
+[global]
+output_dir = "./plugins"
+conflict_strategy = "rename"  # error | skip | rename | overwrite
 
-   Load in Tentacle:
-   tentacle --transport stdio --plugins-dir ./plugins
+[[servers]]
+name = "filesystem"
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+
+[[servers]]
+name = "github"
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-github"]
 ```
+
+### MCP Proxy Executor (P2)
+
+The MCP Proxy manages MCP Server lifecycle and provides a unified tool call interface:
+
+```rust
+use mcp_learner::{McpProxy, McpServerConfig, ToolCallRequest};
+
+#[tokio::main]
+async fn main() {
+    let proxy = McpProxy::new();
+
+    // Add MCP Server (lazy connection)
+    proxy.add_server(McpServerConfig {
+        name: "filesystem".to_string(),
+        command: "python3".to_string(),
+        args: vec!["mock_mcp_server.py".to_string()],
+        transport: "stdio".to_string(),
+    });
+
+    // Call tool (connects lazily on first call)
+    let response = proxy.call_tool(ToolCallRequest {
+        server: "filesystem".to_string(),
+        tool: "read_file".to_string(),
+        arguments: serde_json::json!({"path": "/tmp/test.txt"}),
+    }).await;
+
+    println!("Success: {}", response.success);
+    println!("Result: {:?}", response.result);
+}
+```
+
+### macOS Glove (P2)
+
+6 built-in macOS system tools, usable as MCP Server or directly:
+
+| Tool | Description | Risk Level |
+|---|---|---|
+| `macos_read_file` | Read file from filesystem | LOW |
+| `macos_write_file` | Write content to file | MEDIUM |
+| `macos_list_directory` | List files in directory | LOW |
+| `macos_execute_command` | Execute shell command | CRITICAL |
+| `macos_list_processes` | List running processes | LOW |
+| `macos_run_applescript` | Execute AppleScript | CRITICAL |
 
 ---
 
@@ -166,11 +216,22 @@ Helix-MCP-Learner/
 │   │   └── mod.rs          # MCP Client (stdio + JSON-RPC 2.0)
 │   ├── ci144/
 │   │   └── mod.rs          # CI-144 extraction + PFP risk rating
-│   └── manifest/
-│       └── mod.rs          # Tentacle Manifest generator
+│   ├── manifest/
+│   │   └── mod.rs          # Tentacle Manifest generator
+│   ├── proxy/
+│   │   └── mod.rs          # MCP Proxy Executor (P2)
+│   ├── config/
+│   │   └── mod.rs          # Multi MCP Server config + batch learning (P2)
+│   ├── glove/
+│   │   ├── mod.rs
+│   │   └── macos/
+│   │       └── mod.rs      # macOS Glove (6 system tools) (P2)
+│   └── learning/
+│       └── mod.rs          # Incremental learning + version management (P2)
 ├── tests/
-│   ├── integration_test.rs # End-to-end tests
-│   ├── perf_test.rs        # Performance comparison tests
+│   ├── integration_test.rs # End-to-end tests (3)
+│   ├── perf_test.rs        # Performance comparison tests (1)
+│   ├── proxy_test.rs       # MCP Proxy tests (3)
 │   └── mock_mcp_server.py  # Mock MCP Server for testing
 ├── docs/
 │   ├── DNA.md              # Constitution: 6 immutable principles
@@ -195,7 +256,7 @@ Helix-MCP-Learner/
 | [Tuck](https://github.com/Jasonmilk/Tuck) | Immune System (security gate) | ✅ Complete |
 | [Cellrix](https://github.com/Jasonmilk/Cellrix) | Skin (UI/display) | ✅ Complete |
 | [BIND-19](https://github.com/CommonIntents/BIND-19) | Nervous System (CI-144 protocol) | ✅ Complete |
-| **Helix-MCP-Learner** | **Translator (MCP → CI-144)** | **✅ P1 Complete** |
+| **Helix-MCP-Learner** | **Translator (MCP → CI-144)** | **✅ P2 Complete** |
 
 ---
 
