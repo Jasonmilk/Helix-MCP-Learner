@@ -505,8 +505,8 @@ mod tests {
         assert!(dir.path().join("rejected").exists());
 
         // 验证文件写入
-        assert!(dir.path().join("stable/mcp.filesystem.read_file.json").exists());
-        assert!(dir.path().join("staging/readfile.json").exists());
+        assert!(dir.path().join("stable/mcp.filesystem.read_file.manifest.json").exists());
+        assert!(dir.path().join("staging/readfile.manifest.json").exists());
         // rejected 的工具名为空，文件名是 .json，检查 rejected 目录非空
         assert!(dir.path().join("rejected").read_dir().unwrap().count() >= 1);
 
