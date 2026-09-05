@@ -1,7 +1,7 @@
 # Helix-MCP-Learner 开发导航牌（PLAN）
 
-> **版本**：v3.0（P2 完成，2026-08-30）
-> **状态**：✅ P2 完成 — OS Glove + 多 MCP Server + MCP 代理执行体
+> **版本**：v3.2（P3 生态联调 + P4-T1 审查管道完成，2026-09-06）
+> **状态**：✅ P2/P3/P4-T1 完成 — 生态联调全链路畅通（Tentacle 集成）+ post_learn 审查管道；⚠️ 1 个失败测试未修
 > **分支**：main
 > **所属方法论**：phyt-DNA 方法论 v1.0（方法论锚点项目 https://github.com/Jasonmilk/phyt-DNA）
 > **规则**：本文件只含当前阶段 + 下一阶段预览 + 阶段总览地图。完成阶段 → GROWTH.md。总行数 ≤150，超出触发历史迁移。
@@ -77,8 +77,9 @@
 | 阶段 | 内容 | 状态 |
 |---|---|---|
 | P1 | MCP-Learner 最小验证（stdio + mock-server + 端到端） | ✅ 已完成 |
-| **P2** | **OS Glove + 多 MCP Server + MCP 代理执行体** | **🚧 启动中** |
-| P3 | 生态联调 + 高级特性（Tentacle/Tuck/Anaphase 集成） | ⏳ 预览 |
+| P2 | OS Glove + 多 MCP Server + MCP 代理执行体 | ✅ 已完成 |
+| P3 | 生态联调 + 高级特性（Tentacle 集成 + 全链路修复） | ✅ 已完成 |
+| P4-T1 | post_learn 审查管道（raw/staging/stable/rejected 状态迁移自动化） | ✅ 已完成 |
 
 ---
 

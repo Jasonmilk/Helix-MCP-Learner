@@ -135,3 +135,22 @@ tentacle-cli 执行 mock-filesystem.list_files → ✅ 成功返回结果
 **提交记录**：`d21b897` — fix(生态联调): 修复全链路兼容性问题
 
 **下一步**：升级 mcp_proxy.js 为真实 MCP 代理执行体（当前为占位脚本）
+
+## [2026-09-06] P3 + P4-T1 完成 — 生态联调全链路 + post_learn 审查管道
+
+### 触发条件
+P3 生态联调（Tentacle 全链路兼容修复 + 里程碑记录）与 P4-T1（post_learn 审查管道）完成。
+
+### 变更性质
+- **P3 生态联调**：MCP 工具名点分命名空间（`<server>.<name>`）+ manifest 后缀 `.manifest.json` + mcp_proxy.js 占位执行体 + SHA-256 真实哈希 + Tentacle 插件懒加载修复（6 个联调问题全修）
+- **P4-T1 post_learn 审查管道**：`ReviewPipeline` + `ReviewPipelineConfig` + `ToolState` + `ToolReviewResult` + `BatchReviewResult`；状态迁移自动化（Error→rejected/，Warning→staging/，Info→stable/）；集成到 `mcp-learner learn` 命令；审查报告 `{server}_review_report.json`
+
+### 关键成果
+- **全链路验证通过**：MCP-Learner 学习 mock MCP Server → L1 静态审查（9 规则 0 warning 0 error）→ stable/ 目录 → Tentacle 扫描 + SHA-256 校验 → 工具注册 → 执行成功
+- **测试**：42 passed + 1 failed（失败项待修，非阻塞）
+
+### 提交
+- `d21b897`（全链路兼容修复）+ `500a461`（生态联调里程碑）+ `5a32508`（P4-T1 审查管道）
+
+### 状态
+✅ P2/P3/P4-T1 完成；⚠️ 1 failed 未修（ECOSYSTEM 已记录）

@@ -53,12 +53,14 @@ Tuck (Security Decisions)
 
 ## Current Status
 
-**P2 Complete** ✅ (2026-08-30)
+**P2/P3/P4-T1 Complete** ✅ (2026-08-30 / 2026-08-31)
 
 | Phase | Content | Status |
 |---|---|---|
 | P1 | MCP-Learner minimum verification (stdio + mock-server + end-to-end) | ✅ Complete |
 | **P2** | **OS Glove + Multi MCP Server + MCP Proxy Executor** | **✅ Complete** |
+| **P3** | **Ecosystem integration (Tentacle full-chain)** | **✅ Complete** |
+| **P4-T1** | **post_learn review pipeline (state migration)** | **✅ Complete** |
 | P3 | Ecosystem integration + advanced features | ⏳ Preview |
 
 ### P2 Features
@@ -70,7 +72,7 @@ Tuck (Security Decisions)
 | macOS Glove | `src/glove/macos/` | 6 system tools: file read/write, directory list, command exec, process list, AppleScript |
 | Incremental Learning | `src/learning/` | Tool change detection, incremental diff, version management, deprecation marking |
 
-**Tests**: 42 all green (35 unit + 3 integration + 1 performance + 3 proxy)
+**Tests**: 42 passed + 1 failed pending (43 defined; the failing test is a known non-blocking item)
 
 ---
 
