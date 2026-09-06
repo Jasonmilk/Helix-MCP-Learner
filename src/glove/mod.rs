@@ -36,7 +36,9 @@
 //!
 //! ## 如何使用新项目
 //!
-//! ```rust
+//! > 示例代码属于 HelixECO-Glove 项目（crate 不在本仓依赖中），故标记为 ignore。
+//!
+//! ```rust,ignore
 //! // 旧方式（已弃用）
 //! // use mcp_learner::glove::macos::MacOSGlove;
 //!
