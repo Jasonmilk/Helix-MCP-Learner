@@ -1,4 +1,5 @@
 # Helix-MCP-Learner RNA — 加载协议 v1.0
+> © 2026 Jason Milk · Apache 2.0
 
 > **所属方法论**：phyt-DNA 方法论 v1.0（方法论锚点项目 https://github.com/Jasonmilk/phyt-DNA）
 > **状态**：定稿生效

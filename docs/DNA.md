@@ -1,4 +1,5 @@
 # Helix-MCP-Learner DNA — 不可变原则
+> © 2026 Jason Milk · Apache 2.0
 
 > **版本**：v1.0
 > **日期**：2026-08-30
