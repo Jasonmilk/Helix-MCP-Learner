@@ -265,7 +265,9 @@ mod tests {
             parameters: serde_json::json!({"type": "object"}),
             risk_level: risk,
             modality: "EXECUTIVE".to_string(),
-            requires_confirmation: false,
+            requires_confirmation: risk.requires_confirmation(),
+            risk_provenance: crate::ci144::FieldProvenance::unknown(),
+            mcp_annotations: None,
         }
     }
 

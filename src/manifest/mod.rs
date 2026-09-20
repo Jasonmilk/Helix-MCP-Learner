@@ -6,14 +6,19 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
-use crate::ci144::{Ci144Tool, RiskLevel};
+use crate::ci144::{Ci144Tool, FieldProvenance, RiskLevel};
+use crate::mcp::ToolAnnotations;
 
 /// Tentacle 安全等级映射
+///
+/// **Append-Only**：`Unknown` 追加在末尾，既有变体绝不重编号或重排序。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SecurityLevel {
     Normal,
     Critical,
+    /// 未知：无证据 ⇒ 无能力（既不是 Normal，也不能靠"少给权限"糊过去）
+    Unknown,
 }
 
 impl From<RiskLevel> for SecurityLevel {
@@ -21,6 +26,8 @@ impl From<RiskLevel> for SecurityLevel {
         match risk {
             RiskLevel::Low | RiskLevel::Medium => SecurityLevel::Normal,
             RiskLevel::Critical | RiskLevel::Catastrophic => SecurityLevel::Critical,
+            // 无证据 ⇒ 无能力：不得映射为 Normal（那正是本缺陷的安全倒置）
+            RiskLevel::Unknown => SecurityLevel::Unknown,
         }
     }
 }
@@ -85,6 +92,16 @@ pub struct Ci144Metadata {
     pub pfp_modality: String,
     /// 是否需要人工确认
     pub requires_confirmation: bool,
+    /// 风险等级的**来源与信任度**。
+    ///
+    /// 与 `pfp_risk_level` 一一对应；使"关键词猜出来的 LOW"与
+    /// "server 声明的 LOW"、以及"UNKNOWN"在数据上可区分。
+    /// `#[serde(default)]` 让旧 Manifest 仍可解析（缺省落到 Unknown，而不是 Low）。
+    #[serde(default)]
+    pub risk_provenance: FieldProvenance,
+    /// server 声明的原始 `ToolAnnotations`（证据本体，原样保留以便复核）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mcp_annotations: Option<ToolAnnotations>,
     /// MCP Server 配置
     pub mcp_server: McpServerConfig,
 }
@@ -169,6 +186,10 @@ impl ManifestGenerator {
                 network: vec!["*".to_string()],
                 execute: true,
             },
+            // 无证据 ⇒ 无能力。
+            // 不是"少给权限"：`filesystem: ["read"]` 仍然是**给**，
+            // 一个猜出来的最低权限就会变成事实上的默认授权。
+            RiskLevel::Unknown => Permission::default(),
         };
 
         ToolManifest {
@@ -191,7 +212,12 @@ impl ManifestGenerator {
                 mcp_name: tool.mcp_name.clone(),
                 pfp_risk_level: tool.risk_level.as_str().to_string(),
                 pfp_modality: tool.modality.clone(),
-                requires_confirmation: tool.requires_confirmation,
+                // 兜底强制：即便上游 Ci144Tool 把 requires_confirmation 设成 false，
+                // CRITICAL/CATASTROPHIC/UNKNOWN 依然必须人工确认（单一事实来源见 RiskLevel）
+                requires_confirmation: tool.requires_confirmation
+                    || tool.risk_level.requires_confirmation(),
+                risk_provenance: tool.risk_provenance.clone(),
+                mcp_annotations: tool.mcp_annotations.clone(),
                 mcp_server: self.server_config.clone(),
             },
             timeout_ms: 30000,
@@ -252,7 +278,8 @@ fn chrono_now() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ci144::{Ci144Tool, RiskLevel};
+    use crate::ci144::{Ci144Tool, FieldProvenance, ProvenanceOrigin, RiskLevel};
+    use crate::mcp::{Tool, ToolAnnotations, ToolInputSchema};
 
     fn make_ci144_tool(name: &str, risk: RiskLevel) -> Ci144Tool {
         Ci144Tool {
@@ -268,7 +295,27 @@ mod tests {
             }),
             risk_level: risk,
             modality: "EXECUTIVE".to_string(),
-            requires_confirmation: matches!(risk, RiskLevel::Critical | RiskLevel::Catastrophic),
+            requires_confirmation: risk.requires_confirmation(),
+            risk_provenance: FieldProvenance::unknown(),
+            mcp_annotations: None,
+        }
+    }
+
+    /// 从 MCP Tool 一路提炼到 Manifest（真实链路，而非手工构造）
+    fn manifest_for(mcp_tool: &Tool) -> ToolManifest {
+        let generator =
+            ManifestGenerator::new("test-server", "npx", vec!["-y".to_string()]);
+        generator.generate_tool(&crate::ci144::extract_tool_with_namespace(mcp_tool, "test-server"))
+    }
+
+    fn mcp_tool(name: &str, annotations: Option<ToolAnnotations>) -> Tool {
+        Tool {
+            name: name.to_string(),
+            description: format!("Test tool: {}", name),
+            title: None,
+            annotations,
+            inputSchema: ToolInputSchema::default(),
+            output_schema: None,
         }
     }
 
@@ -278,6 +325,107 @@ mod tests {
         assert_eq!(SecurityLevel::from(RiskLevel::Medium), SecurityLevel::Normal);
         assert_eq!(SecurityLevel::from(RiskLevel::Critical), SecurityLevel::Critical);
         assert_eq!(SecurityLevel::from(RiskLevel::Catastrophic), SecurityLevel::Critical);
+        // 未知不等于正常
+        assert_eq!(SecurityLevel::from(RiskLevel::Unknown), SecurityLevel::Unknown);
+    }
+
+    /// 核心回归：未知风险的工具必须拿到**空**权限，
+    /// 断言在退回"默认 Low"时会失败（那时 permissions.filesystem == ["read"]）。
+    #[test]
+    fn test_unknown_risk_grants_no_capabilities() {
+        for name in ["清理", "zap", "rm_all_data"] {
+            let manifest = manifest_for(&mcp_tool(name, None));
+
+            assert_eq!(manifest.ci144.pfp_risk_level, "UNKNOWN", "{}", name);
+            assert_eq!(manifest.security_level, SecurityLevel::Unknown, "{}", name);
+            assert!(manifest.ci144.requires_confirmation, "{}", name);
+
+            assert!(
+                manifest.permissions.filesystem.is_empty(),
+                "{} 必须没有任何文件系统能力",
+                name
+            );
+            assert!(
+                manifest.permissions.network.is_empty(),
+                "{} 必须没有任何网络能力",
+                name
+            );
+            assert!(!manifest.permissions.execute, "{} 必须没有执行能力", name);
+
+            // 来源与信任度必须落盘，且如实标为未知
+            assert_eq!(
+                manifest.ci144.risk_provenance.origin,
+                ProvenanceOrigin::Unknown
+            );
+            assert!(!manifest.ci144.risk_provenance.trusted);
+
+            // 既有 tags 行为保持可用，并如实反映 unknown
+            assert!(manifest.tags.contains(&"mcp".to_string()));
+            assert!(manifest.tags.contains(&"risk:unknown".to_string()));
+        }
+    }
+
+    /// 声明优先：destructiveHint ⇒ CRITICAL + 必须人工确认
+    #[test]
+    fn test_declared_destructive_hint_yields_critical_manifest() {
+        let manifest = manifest_for(&mcp_tool(
+            "清理",
+            Some(ToolAnnotations {
+                destructive_hint: Some(true),
+                ..Default::default()
+            }),
+        ));
+
+        assert_eq!(manifest.ci144.pfp_risk_level, "CRITICAL");
+        assert_eq!(manifest.security_level, SecurityLevel::Critical);
+        assert!(manifest.ci144.requires_confirmation);
+        assert!(manifest.permissions.execute);
+        assert_eq!(
+            manifest.ci144.risk_provenance.origin,
+            ProvenanceOrigin::Declared
+        );
+        // 原始声明必须随产物一起保留
+        assert_eq!(
+            manifest
+                .ci144
+                .mcp_annotations
+                .as_ref()
+                .and_then(|a| a.destructive_hint),
+            Some(true)
+        );
+    }
+
+    /// 关键词推断出来的 LOW 必须与声明出来的 LOW 在产物里可区分
+    #[test]
+    fn test_keyword_low_is_distinguishable_from_declared_low() {
+        let inferred = manifest_for(&mcp_tool("read_file", None));
+        assert_eq!(inferred.ci144.pfp_risk_level, "LOW");
+        assert_eq!(
+            inferred.ci144.risk_provenance.origin,
+            ProvenanceOrigin::Inferred
+        );
+        assert_eq!(
+            inferred.ci144.risk_provenance.rule.as_deref(),
+            Some("name.token.read")
+        );
+        assert!(inferred.ci144.mcp_annotations.is_none());
+
+        let declared = manifest_for(&mcp_tool(
+            "read_file",
+            Some(ToolAnnotations {
+                read_only_hint: Some(true),
+                ..Default::default()
+            }),
+        ));
+        assert_eq!(declared.ci144.pfp_risk_level, "LOW");
+        assert_eq!(
+            declared.ci144.risk_provenance.origin,
+            ProvenanceOrigin::Declared
+        );
+        assert_ne!(
+            inferred.ci144.risk_provenance,
+            declared.ci144.risk_provenance
+        );
     }
 
     #[test]
@@ -303,6 +451,17 @@ mod tests {
         assert_eq!(manifest.ci144.pfp_risk_level, "CRITICAL");
         assert!(manifest.ci144.requires_confirmation);
         assert!(manifest.permissions.execute);
+    }
+
+    /// Manifest 层的兜底：上游漏设 requires_confirmation 时不得放行
+    #[test]
+    fn test_manifest_enforces_confirmation_for_unknown() {
+        let generator = ManifestGenerator::new("test-server", "npx", vec![]);
+        let mut tool = make_ci144_tool("zap", RiskLevel::Unknown);
+        tool.requires_confirmation = false; // 上游漏设
+        let manifest = generator.generate_tool(&tool);
+        assert!(manifest.ci144.requires_confirmation);
+        assert_eq!(manifest.security_level, SecurityLevel::Unknown);
     }
 
     #[test]
@@ -341,4 +500,37 @@ mod tests {
         let manifest: ToolManifest = serde_json::from_str(&content).unwrap();
         assert_eq!(manifest.name, "read_file");
     }
+
+    /// 旧 Manifest（没有 risk_provenance / mcp_annotations）必须仍可解析
+    #[test]
+    fn test_legacy_manifest_json_still_parses() {
+        let legacy = r#"{
+            "name": "read_file",
+            "version": "0.1.0",
+            "description": "Read a file",
+            "tags": ["mcp", "risk:low"],
+            "executable": "mcp_proxy.js",
+            "integrity": {"algorithm": "sha256", "hash": "00"},
+            "parameters_schema": {"type": "object"},
+            "security_level": "normal",
+            "permissions": {"filesystem": ["read"]},
+            "ci144": {
+                "mcp_name": "read_file",
+                "pfp_risk_level": "LOW",
+                "pfp_modality": "EXECUTIVE",
+                "requires_confirmation": false,
+                "mcp_server": {"command": "npx", "args": [], "transport": "stdio"}
+            },
+            "timeout_ms": 30000
+        }"#;
+        let manifest: ToolManifest = serde_json::from_str(legacy).unwrap();
+        assert_eq!(manifest.security_level, SecurityLevel::Normal);
+        // 缺失的溯源按"未知"处理，而不是补成"已声明"
+        assert_eq!(
+            manifest.ci144.risk_provenance.origin,
+            ProvenanceOrigin::Unknown
+        );
+        assert!(manifest.ci144.mcp_annotations.is_none());
+    }
 }
+

@@ -24,6 +24,8 @@ pub fn tools() -> Vec<Tool> {
     vec![
         Tool {
             name: "macos_read_file".to_string(),
+            title: None,
+            annotations: None,
             description: "Read a file from the macOS filesystem".to_string(),
             inputSchema: crate::mcp::ToolInputSchema {
                 schema_type: "object".to_string(),
@@ -34,9 +36,12 @@ pub fn tools() -> Vec<Tool> {
                 },
                 required: vec!["path".to_string()],
             },
+            output_schema: None,
         },
         Tool {
             name: "macos_write_file".to_string(),
+            title: None,
+            annotations: None,
             description: "Write content to a file on the macOS filesystem".to_string(),
             inputSchema: crate::mcp::ToolInputSchema {
                 schema_type: "object".to_string(),
@@ -48,9 +53,12 @@ pub fn tools() -> Vec<Tool> {
                 },
                 required: vec!["path".to_string(), "content".to_string()],
             },
+            output_schema: None,
         },
         Tool {
             name: "macos_list_directory".to_string(),
+            title: None,
+            annotations: None,
             description: "List files in a directory on macOS".to_string(),
             inputSchema: crate::mcp::ToolInputSchema {
                 schema_type: "object".to_string(),
@@ -61,9 +69,12 @@ pub fn tools() -> Vec<Tool> {
                 },
                 required: vec!["directory".to_string()],
             },
+            output_schema: None,
         },
         Tool {
             name: "macos_execute_command".to_string(),
+            title: None,
+            annotations: None,
             description: "Execute a shell command on macOS".to_string(),
             inputSchema: crate::mcp::ToolInputSchema {
                 schema_type: "object".to_string(),
@@ -75,18 +86,24 @@ pub fn tools() -> Vec<Tool> {
                 },
                 required: vec!["command".to_string()],
             },
+            output_schema: None,
         },
         Tool {
             name: "macos_list_processes".to_string(),
+            title: None,
+            annotations: None,
             description: "List running processes on macOS".to_string(),
             inputSchema: crate::mcp::ToolInputSchema {
                 schema_type: "object".to_string(),
                 properties: std::collections::HashMap::new(),
                 required: vec![],
             },
+            output_schema: None,
         },
         Tool {
             name: "macos_run_applescript".to_string(),
+            title: None,
+            annotations: None,
             description: "Execute an AppleScript on macOS".to_string(),
             inputSchema: crate::mcp::ToolInputSchema {
                 schema_type: "object".to_string(),
@@ -97,6 +114,7 @@ pub fn tools() -> Vec<Tool> {
                 },
                 required: vec!["script".to_string()],
             },
+            output_schema: None,
         },
     ]
 }

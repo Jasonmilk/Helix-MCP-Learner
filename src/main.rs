@@ -90,7 +90,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             info!("Discovered {} tools", tools.len());
 
             for tool in &tools {
-                info!("  - {} (risk: {:?})", tool.name, mcp_learner::risk_rating(&tool.name));
+                // 打印**来源**而不只是等级：声明得来的答案和关键词猜出来的答案
+                // 必须在日志里就能区分，否则"正常无授权"和"未知工具"长得一模一样。
+                let (risk, provenance) = mcp_learner::assess_risk(tool, &server_name);
+                if risk == mcp_learner::RiskLevel::Unknown {
+                    warn!(
+                        "  - {} risk: {} (origin: {:?}, source: {}) — 无声明且名称无法识别，将不授予任何能力并要求人工确认",
+                        tool.name, risk.as_str(), provenance.origin, provenance.source
+                    );
+                } else {
+                    info!(
+                        "  - {} risk: {} (origin: {:?}, rule: {:?}, trusted: {})",
+                        tool.name,
+                        risk.as_str(),
+                        provenance.origin,
+                        provenance.rule,
+                        provenance.trusted
+                    );
+                }
             }
 
             // 提炼为 CI-144 工具定义（带命名空间前缀，符合点分命名空间规范）

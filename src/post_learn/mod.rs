@@ -410,6 +410,12 @@ mod tests {
                 pfp_risk_level: "low".to_string(),
                 pfp_modality: "cognitive".to_string(),
                 requires_confirmation: false,
+                // 该 fixture 代表"名称关键词推断出来的 low"
+                risk_provenance: crate::ci144::FieldProvenance::inferred(
+                    "name.token.read",
+                    "test-server#tool.name_keyword_rules",
+                ),
+                mcp_annotations: None,
                 mcp_server: Default::default(),
             },
             timeout_ms: 30000,
